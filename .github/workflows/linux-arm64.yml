@@ -1,0 +1,55 @@
+name: Build Linux ARM64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux-arm64:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: haru-linux-aarch64
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libwayland-dev libxkbcommon-dev libxcb1-dev \
+            libx11-dev libxcursor-dev libxi-dev libxrandr-dev
+
+      - name: Build Haru
+        run: cargo build --release --locked -p haru
+
+      - name: Package and verify
+        run: |
+          mkdir -p dist
+          install -m 755 target/release/haru dist/haru-linux-aarch64
+          file dist/haru-linux-aarch64
+          readelf -h dist/haru-linux-aarch64 | grep AArch64
+          tar -czf dist/haru-desktop-linux.tar.gz packaging
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: haru-linux-aarch64
+          path: dist/
+          compression-level: 0
+          if-no-files-found: error
